@@ -1,0 +1,15 @@
+{
+  "component_id": "LM358",
+  "description": "Dual low-power operational amplifier, single-supply capable. DIP-8.",
+  "ki_keywords": "op-amp operational amplifier dual single-supply",
+  "chunks": [
+    {
+      "title": "Component Overview",
+      "text": "[Component context: LM358] Dual operational amplifier. Operates from a single supply of 3 V to 32 V, or dual supplies of plus/minus 1.5 V to plus/minus 16 V. Absolute maximum supply voltage is 32 V. Low input bias current, internally frequency compensated for unity gain. Package DIP-8."
+    },
+    {
+      "title": "Pinout",
+      "text": "[Component context: LM358] Pinout (DIP-8): pin 1 OUT1, pin 2 IN1-, pin 3 IN1+, pin 4 GND/V-, pin 5 IN2+, pin 6 IN2-, pin 7 OUT2, pin 8 VCC/V+."
+    }
+  ]
+}

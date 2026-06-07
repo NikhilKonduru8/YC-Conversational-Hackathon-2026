@@ -1,0 +1,5 @@
+# Keep the bulk component data (curated_components/, zips) out of git, but track
+# the schema example so the repo documents the expected format.
+*
+!.gitignore
+!example_component.json

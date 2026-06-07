@@ -1,0 +1,24 @@
+# --- Secrets (never commit) ---
+.env
+.env.local
+.env.*.local
+*.key
+
+# --- Python / uv ---
+agent-py/.venv/
+.venv/
+**/__pycache__/
+*.pyc
+**/*.egg-info/
+agent-py/.ruff_cache/
+agent-py/.pytest_cache/
+
+# --- OS / editor junk ---
+.DS_Store
+._*
+Thumbs.db
+.vscode/
+.idea/
+
+# --- Bulk archives ---
+*.zip
