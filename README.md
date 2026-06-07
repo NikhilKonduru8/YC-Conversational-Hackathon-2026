@@ -1,37 +1,52 @@
 # Jarvis — Real-Time, Vision-Grounded Engineering Co-Pilot for Smart Glasses
 
 Jarvis is a wearable, hands-free AI assistant for electronics work. You wear a
-pair of camera glasses wired to a Raspberry Pi in your pocket, say
-**"Hey Jarvis,"** and ask about whatever is on your workbench. It **sees** the
-component through the camera, **retrieves** its real datasheet specifications,
-**reasons** over them, and **speaks** the answer back — in roughly three seconds —
-while remembering the conversation so natural follow-ups ("now make it blink
-every three seconds") just work.
+pair of smart glasses — a **camera**, a **microphone**, and a small **on-glasses
+display** — wired to a Raspberry Pi in your pocket. You say **"Hey Jarvis,"** ask
+about whatever is on your workbench, and it **sees** the component through the
+camera, **retrieves** its real datasheet specifications, **reasons** over them,
+and **speaks** the answer back — in roughly three seconds — while remembering the
+conversation so natural follow-ups ("now make it blink every three seconds") just
+work.
 
-It is a genuine real-time **co-pilot**: it listens continuously, you can **barge
-in** mid-answer by saying "Hey Jarvis" again to redirect it, and you quit at any
-moment by saying **"Jarvis exit."**
+It is a genuine real-time **co-pilot**: it listens continuously, it's **proactive**
+(if your request is ambiguous it asks a quick clarifying question instead of
+guessing), you can **barge in** mid-answer by saying "Hey Jarvis" again to
+redirect it, and you quit any time by saying **"Jarvis exit."**
+
+### 🎯 Who it's for
+
+**Hobbyists and makers** first and foremost — the people hacking on breadboards,
+Arduinos, and ESP32s at home who constantly stop to look up "what's the max
+voltage on this chip" or "which pin is the output." It's just as useful for
+students learning electronics and for engineers who want a hands-free reference
+at the bench.
+
+### 🖥️ The on-glasses display (a key differentiator)
+
+Most voice assistants are a black box — you talk and hope. Jarvis puts a small
+**OLED display right on the glasses** that shows exactly what the agent is doing
+in real time: **Listening → Looking → Searching → Thinking → Speaking**, and
+**"Okay, done"** when you exit. Paired with the camera and microphone, that means
+the wearer always has glanceable visual feedback about the agent's state — no
+guessing whether it heard you, is looking at the board, or is mid-thought. It's a
+small piece of hardware that makes the whole interaction feel trustworthy.
 
 ---
 
-## 🎒 Completely portable. Completely self-contained.
+## 🎒 Wear it and go — it just connects to a speaker
 
-This is the part we're proudest of: **there is no laptop, no desktop, no tethered
-computer anywhere in the loop.**
+The setup is intentionally minimal. The **glasses go on your head** (camera +
+microphone + display), the **Raspberry Pi goes in your pocket** running the whole
+application, a **USB power bank** powers it, and it **connects to a speaker — and
+that's it.** No laptop, no desktop, no tethered computer anywhere in the loop. You
+stand up and walk around the lab with the full pipeline running.
 
-- The **glasses go on your head** (USB camera + microphone).
-- The **Raspberry Pi goes in your pocket**, running the entire application.
-- A **USB power bank** powers the whole thing.
-
-That's it. You stand up and walk around a lab with the full pipeline running. The
-on-device layer — wake-word detection, voice-activity detection, audio
-resampling, the orchestration state machine, and the OLED display — runs **locally
-on the Pi** for instant response and works without touching the network. The
-heavy intelligence (speech, vision, retrieval, reasoning) is reached over the
-Pi's own Wi-Fi/hotspot connection, so the Pi stays light and battery-friendly.
-The only external part in this repo's setup is a development speaker; a production
-build replaces it with a bone-conduction earpiece so the glasses are the entire
-interface.
+The on-device layer — wake-word detection, voice-activity detection, audio
+resampling, the orchestration state machine, and the display — runs **locally on
+the Pi** for instant response; the heavy intelligence (speech, vision, retrieval,
+reasoning) is reached over the Pi's own network connection, keeping the device
+light and battery-friendly.
 
 ---
 
@@ -88,8 +103,8 @@ closed loop, and each one feeds the next. The interesting engineering is in the
                                        │  (WebRTC, streamed, ~1.3× speed)    │         │
                                        └─────────────────────────────────────┘         │
                     │                                                                  │
-                    │   every stage → OLED status · "Hey Jarvis" barges in · "Jarvis   │
-                    │   exit" ends the loop · answer + question kept in memory ────────┘
+                    │   every stage → on-glasses display · "Hey Jarvis" barges in ·    │
+                    │   "Jarvis exit" ends the loop · question + answer kept in memory │
                     └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -116,47 +131,61 @@ No single sponsor produces the experience alone — **the product is the loop.**
 ### Hardware
 | Part | Spec |
 |------|------|
-| Compute | Raspberry Pi 4 / 5 (ARM64, Python 3.11) |
-| Mic | USB microphone (any rate; resampled to 16 kHz mono on-device) |
+| Compute | Raspberry Pi 4 (ARM64, Python 3.11) |
+| Microphone | Bluetooth lavalier USB microphone (resampled to 16 kHz mono on-device) |
 | Camera | USB webcam via OpenCV `VideoCapture` |
-| Display | SSD1306 128×64 OLED over I²C (addr `0x3C`, `SDA=GPIO2`, `SCL=GPIO3`) |
-| Audio out | USB/HDMI speaker (dev); bone-conduction earpiece (production) |
+| Display | SSD1306 128×64 OLED over I²C, on the glasses (addr `0x3C`, `SDA=GPIO2`, `SCL=GPIO3`) — live agent-state feedback |
+| Audio out | Speaker (USB / HDMI) |
 | Power | USB power bank |
 
-### Audio pipeline (on-device, real-time)
+### Audio pipeline (on-device + LiveKit)
 - **16 kHz mono** internal format (required by the wake word + VAD).
 - **`sounddevice` / PortAudio** for capture + playback, with an always-on input
-  stream feeding an async queue.
+  stream feeding an async queue shared by wake detection and STT.
 - **`scipy.signal.resample_poly`** software resampling — captures at the mic's
   native rate (e.g. 48 kHz) and resamples to 16 kHz in; resamples TTS audio to a
   rate the speaker accepts on the way out.
 - **Format/channel/rate probing** on output (stereo/mono × int16/float32 × several
   rates, with device fallback) so it "just works" across finicky Pi/HDMI/ALSA
-  audio devices.
+  devices.
 - **openWakeWord** — the **"Hey Jarvis" wake word runs entirely on-device** as an
-  ONNX model (no cloud, no key, ~80 ms frames). This is what lets the glasses idle
-  privately and wake instantly.
+  ONNX model (no cloud, no key, ~80 ms frames), so the glasses idle privately and
+  wake instantly.
 - **Google WebRTC VAD (`webrtcvad`)** — 20 ms-frame voice-activity detection for
   utterance endpointing (knowing when you've stopped talking).
+- **LiveKit Inference STT/TTS** — the cloud ends of the audio pipeline. The mic's
+  16 kHz frames are streamed *live* into LiveKit STT as you speak; MiniMax's text
+  is streamed into LiveKit TTS and the returned audio frames are resampled and
+  played back. LiveKit is what turns raw audio into a conversation.
 
-### Models & services (cloud, OpenAI-/WebRTC-compatible)
-- **LiveKit Agents (WebRTC real-time media framework)** — `inference.STT` and
-  `inference.TTS` used **standalone** (driven with `rtc.AudioFrame`s, no room),
-  with a self-managed HTTP session context.
-  - **STT:** Deepgram **nova-3**, **streaming** — transcribes *live while you
-    speak*, not after.
-  - **TTS:** Cartesia **sonic-3**, streamed and sped up (~1.3×) via the provider's
-    native speed control (no pitch change).
-- **Qwen3-VL-Flash** (Alibaba DashScope, workspace MaaS endpoint, OpenAI-compatible)
-  — multimodal scene understanding; **thinking disabled** for low latency; frames
-  sent as downsampled base64 JPEGs.
-- **Moss** — real-time semantic search engine (Rust/WASM vector index, sub-10 ms
-  lookups, instant index updates); one vector per datasheet chunk.
-- **MiniMax-M3** (OpenAI-compatible) — grounded reasoning engine; **thinking
-  disabled** (direct, fast, clean output) with a `<think>`-stripping safety filter;
-  streamed sentence-by-sentence into TTS.
-- **Unsiloed AI** — datasheet PDF → structured chunk extraction (offline, builds
-  the corpus).
+### Models & services
+*(ordered by how central they are to this build)*
+
+1. **LiveKit Agents (WebRTC real-time media framework)** — the backbone of the
+   voice experience. We use `inference.STT` and `inference.TTS` **standalone**
+   (driven directly with `rtc.AudioFrame`s, no room, via a self-managed HTTP
+   session context).
+   - **STT:** Deepgram **nova-3**, **streaming** — transcribes *live while you
+     speak*, not after.
+   - **TTS:** Cartesia **sonic-3**, streamed and sped up (~1.3×) via the
+     provider's native speed control (no pitch change).
+2. **Moss** — the **real-time retrieval layer, and a centerpiece of this build.**
+   Moss is a runtime for semantic search with a **Rust/WASM vector index** that
+   delivers **sub-10 ms lookups with no external vector database to stand up**. We
+   index one vector per datasheet chunk; at query time it returns the exact spec
+   passages for the component in view. It's what lets Jarvis ground every answer
+   in verified data *without* adding latency — even as the component library grows
+   large, retrieval stays ~10 ms.
+3. **Qwen3-VL-Flash** (Alibaba DashScope, workspace MaaS endpoint, OpenAI-compatible)
+   — multimodal scene understanding; **thinking disabled** for low latency; frames
+   sent as downsampled base64 JPEGs.
+4. **MiniMax-M3** (OpenAI-compatible) — grounded reasoning engine; **thinking
+   disabled** (direct, fast, clean output) with a `<think>`-stripping safety
+   filter; streamed sentence-by-sentence into TTS; carries rolling conversation
+   memory.
+5. **Unsiloed AI** — datasheet PDF → structured chunk extraction (offline). Builds
+   the verified corpus that Moss indexes — the reason answers cite real specs
+   instead of guesses.
 
 ### Software architecture
 - **ROS-style node graph.** Each stage is an independent **node** communicating
@@ -175,13 +204,17 @@ No single sponsor produces the experience alone — **the product is the loop.**
 | Retrieval | `nodes/retrieval_node.py` | fuse speech+vision → Moss query → specs |
 | Reasoning | `nodes/reasoning_node.py` | MiniMax-M3, grounded, rolling memory |
 | TTS | `nodes/tts_node.py` | LiveKit TTS → speaker, interruptible |
-| Display | `nodes/display_node.py` | OLED state (luma.oled / SSD1306) |
+| Display | `nodes/display_node.py` | on-glasses OLED state (luma.oled / SSD1306) |
 | Orchestrator | `nodes/orchestrator_node.py` | state machine, barge-in, exit |
 
 State machine: `Sleeping → Listening → Looking → Searching → Thinking → Speaking`.
 
 ### Latency engineering
 Several deliberate optimizations keep it conversational (~3 s):
+- **Moss sub-10 ms retrieval** — semantic search returns in **~10 ms even when
+  pulling from a large component database**, so grounding adds virtually nothing
+  to the latency budget. This is a big reason the whole loop stays fast; a
+  traditional vector-DB round trip would cost far more.
 - **Parallel vision** — Qwen fires the instant you start talking, hidden behind
   your speech + transcription instead of adding 2–3 s serially.
 - **Live streaming STT** — audio is pushed to STT frame-by-frame as you speak, so
@@ -200,7 +233,7 @@ Several deliberate optimizations keep it conversational (~3 s):
 | Voice-activity detection (WebRTC VAD) | LiveKit TTS (Cartesia sonic-3) |
 | Audio capture/playback + resampling | Qwen3-VL-Flash (vision) |
 | Orchestration state machine | Moss (semantic search) |
-| OLED display, camera capture | MiniMax-M3 (reasoning) |
+| On-glasses OLED display, camera capture | MiniMax-M3 (reasoning) |
 
 ---
 
@@ -209,10 +242,27 @@ Several deliberate optimizations keep it conversational (~3 s):
 - **On-device wake word** — "Hey Jarvis," private and instant, no key.
 - **Vision-grounded answers** — answers about the component the camera sees.
 - **Verified grounding** — every spec traces to a real datasheet (Unsiloed → Moss).
+- **Proactive clarification** — if a request is ambiguous or missing a key detail,
+  Jarvis asks a short follow-up question to build understanding instead of
+  guessing. It's an active conversational partner, not a passive listener.
 - **Conversation memory** — follow-ups keep context across turns.
+- **On-glasses status display** — glanceable visual feedback at every stage.
 - **Barge-in** — say "Hey Jarvis" mid-answer to interrupt and redirect.
-- **Voice exit** — "Jarvis exit" → OLED shows "Okay, done" and quits.
+- **Voice exit** — "Jarvis exit" → display shows "Okay, done" and quits.
 - **Resilient** — any model/service failure degrades gracefully instead of crashing.
+
+---
+
+## 🔭 Future improvements
+
+- **More compact glasses** — integrate the camera, microphone, and display
+  directly into the frame, with a cleaner, smaller display, so it looks and feels
+  like ordinary eyewear.
+- **Custom compute board instead of a Raspberry Pi** — a smaller, more
+  power-efficient board, either built into the glasses themselves or shrunk into a
+  tiny pod that slips into a pocket.
+- **Bone-conduction earpiece** — replace the external speaker so the glasses are
+  the entire interface, fully private audio with nothing else attached.
 
 ---
 
@@ -272,5 +322,5 @@ agent-py/
 └── pyproject.toml           # uv-managed deps
 ```
 
-*Built for the YC Conversational AI Hackathon 2026, integrating Moss, Unsiloed AI,
-Qwen, MiniMax, and LiveKit.*
+*Built for the YC Conversational AI Hackathon 2026, integrating LiveKit, Moss,
+Qwen, MiniMax, and Unsiloed AI.*
