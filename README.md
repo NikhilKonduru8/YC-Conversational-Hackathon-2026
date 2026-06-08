@@ -322,5 +322,5 @@ agent-py/
 └── pyproject.toml           # uv-managed deps
 ```
 
-*Built for the YC Conversational AI Hackathon 2026, integrating LiveKit, Moss,
+*Won 2nd at the YC Conversational AI Hackathon 2026, integrating LiveKit, Moss,
 Qwen, MiniMax, and Unsiloed AI.*
