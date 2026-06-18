@@ -1,6 +1,8 @@
 # Jarvis — Real-Time, Vision-Grounded Engineering Co-Pilot for Smart Glasses 
 
-## 🎉 Won 2nd at the YC x Moss Conversational AI Hackathon 2026 as Sophomores in High School, competing against Ivy League Graduates, Industry Professionals, and Technical Founders
+## 🎉 (Youngest Ever) Won 2nd at the YC x Moss Conversational AI Hackathon 2026 as Sophomores in High School, competing against Ivy League Graduates, Industry Professionals, and Technical Founders
+
+Demo Video: https://www.youtube.com/watch?v=1D_shq4_MYo 
 
 Jarvis is a wearable, hands-free AI assistant for electronics work. You wear a
 pair of smart glasses — a **camera**, a **microphone**, and a small **on-glasses
